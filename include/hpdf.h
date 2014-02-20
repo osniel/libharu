@@ -973,6 +973,17 @@ HPDF_Font_MeasureText (HPDF_Font          font,
                        HPDF_BOOL          wordwrap,
                        HPDF_REAL         *real_width);
 
+HPDF_EXPORT(HPDF_UINT)
+HPDF_Font_MeasureTextAndTruncate (HPDF_Font          font,
+                       const HPDF_BYTE   *text,
+                       HPDF_UINT          len,
+                       HPDF_REAL          width,
+                       HPDF_REAL          font_size,
+                       HPDF_REAL          char_space,
+                       HPDF_REAL          word_space,
+                       HPDF_BOOL          wordwrap,
+                       HPDF_REAL         *real_width,
+					   HPDF_BOOL		  truncate_str);
 
 /*--------------------------------------------------------------------------*/
 /*----- attachements -------------------------------------------------------*/
@@ -1020,6 +1031,13 @@ HPDF_Page_MeasureText  (HPDF_Page    page,
                         HPDF_BOOL    wordwrap,
                         HPDF_REAL   *real_width);
 
+HPDF_EXPORT(HPDF_UINT)
+HPDF_Page_MeasureTextAndTruncate  (HPDF_Page    page,
+                        const char  *text,
+                        HPDF_REAL    width,
+                        HPDF_BOOL    wordwrap,
+                        HPDF_REAL   *real_width,
+						HPDF_BOOL    truncate_str);
 
 HPDF_EXPORT(HPDF_REAL)
 HPDF_Page_GetWidth  (HPDF_Page   page);
@@ -1571,6 +1589,17 @@ HPDF_Page_TextRect  (HPDF_Page            page,
                      const char          *text,
                      HPDF_TextAlignment   align,
                      HPDF_UINT           *len);
+
+HPDF_EXPORT(HPDF_STATUS)
+HPDF_Page_TextRectAndTruncate  (HPDF_Page            page,
+                     HPDF_REAL            left,
+                     HPDF_REAL            top,
+                     HPDF_REAL            right,
+                     HPDF_REAL            bottom,
+                     const char          *text,
+                     HPDF_TextAlignment   align,
+                     HPDF_UINT           *len,
+					 HPDF_BOOL			  truncate_str);					 
 
 
 HPDF_EXPORT(HPDF_STATUS)

@@ -45,6 +45,18 @@ Type1Font_MeasureText  (HPDF_Font          font,
                         HPDF_BOOL          wordwrap,
                         HPDF_REAL         *real_width);
 
+static HPDF_UINT
+Type1Font_MeasureTextAndTruncate  (HPDF_Font          font,
+                        const HPDF_BYTE   *text,
+                        HPDF_UINT          len,
+                        HPDF_REAL          width,
+                        HPDF_REAL          font_size,
+                        HPDF_REAL          char_space,
+                        HPDF_REAL          word_space,
+                        HPDF_BOOL          wordwrap,
+                        HPDF_REAL         *real_width,
+						HPDF_BOOL		   truncate_str);
+						
 
 static HPDF_STATUS
 Type1Font_CreateDescriptor  (HPDF_MMgr  mmgr,
@@ -101,6 +113,7 @@ HPDF_Type1Font_New  (HPDF_MMgr        mmgr,
     attr->writing_mode = HPDF_WMODE_HORIZONTAL;
     attr->text_width_fn = Type1Font_TextWidth;
     attr->measure_text_fn = Type1Font_MeasureText;
+	attr->measure_and_truncate_text_fn = Type1Font_MeasureTextAndTruncate;
     attr->fontdef = fontdef;
     attr->encoder = encoder;
     attr->xref = xref;
@@ -312,6 +325,67 @@ Type1Font_MeasureText (HPDF_Font          font,
     return len;
 }
 
+static HPDF_UINT
+Type1Font_MeasureTextAndTruncate (HPDF_Font          font,
+                       const HPDF_BYTE   *text,
+                       HPDF_UINT          len,
+                       HPDF_REAL          width,
+                       HPDF_REAL          font_size,
+                       HPDF_REAL          char_space,
+                       HPDF_REAL          word_space,
+                       HPDF_BOOL          wordwrap,
+                       HPDF_REAL         *real_width,
+					   HPDF_BOOL		  truncate_str)
+{
+    HPDF_REAL w = 0;
+	HPDF_REAL prev_w = 0;
+    HPDF_UINT tmp_len = 0;
+    HPDF_UINT i;
+    HPDF_FontAttr attr = (HPDF_FontAttr)font->attr;
+
+    HPDF_PTRACE ((" HPDF_Type1Font_MeasureText\n"));
+
+    for (i = 0; i < len; i++) {
+        HPDF_BYTE b = text[i];
+
+        if (HPDF_IS_WHITE_SPACE(b)) {
+            tmp_len = i + 1;
+
+            if (real_width)
+                *real_width = w;
+
+            w += word_space;
+        } else if (!wordwrap) {
+            tmp_len = i;
+
+            if (real_width)
+                *real_width = w;
+        }
+		prev_w = w;
+        w += attr->widths[b] * font_size / 1000;
+
+        /* 2006.08.04 break when it encountered  line feed */
+        if (w > width || b == 0x0A)
+		{
+			if (w > width && truncate_str)
+			{
+				if (real_width)
+					*real_width = (HPDF_REAL)prev_w;
+				return i;
+			}
+            return tmp_len;
+		}
+
+        if (i > 0)
+            w += char_space;
+    }
+
+    /* all of text can be put in the specified width */
+    if (real_width)
+        *real_width = w;
+
+    return len;
+}
 
 static HPDF_STATUS
 Type1Font_OnWrite  (HPDF_Dict    obj,

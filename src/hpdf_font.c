@@ -85,6 +85,40 @@ HPDF_Font_MeasureText (HPDF_Font          font,
                             char_space, word_space, wordwrap, real_width);
 }
 
+HPDF_EXPORT(HPDF_UINT)
+HPDF_Font_MeasureTextAndTruncate (HPDF_Font          font,
+                       const HPDF_BYTE   *text,
+                       HPDF_UINT          len,
+                       HPDF_REAL          width,
+                       HPDF_REAL          font_size,
+                       HPDF_REAL          char_space,
+                       HPDF_REAL          word_space,
+                       HPDF_BOOL          wordwrap,
+                       HPDF_REAL         *real_width,
+					   HPDF_BOOL		  truncate_str)
+{
+    HPDF_FontAttr attr;
+
+    HPDF_PTRACE ((" HPDF_Font_MeasureText\n"));
+
+    if (!HPDF_Font_Validate(font))
+        return 0;
+
+    if (len > HPDF_LIMIT_MAX_STRING_LEN) {
+        HPDF_RaiseError (font->error, HPDF_STRING_OUT_OF_RANGE, 0);
+        return 0;
+    }
+
+    attr = (HPDF_FontAttr)font->attr;
+
+	if (!attr->measure_and_truncate_text_fn) {
+        HPDF_RaiseError (font->error, HPDF_INVALID_OBJECT, 0);
+        return 0;
+    }
+
+    return attr->measure_and_truncate_text_fn (font, text, len, width, font_size,
+		char_space, word_space, wordwrap, real_width, truncate_str);
+}
 
 HPDF_EXPORT(const char*)
 HPDF_Font_GetFontName  (HPDF_Font font)

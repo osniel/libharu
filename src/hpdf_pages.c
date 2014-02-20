@@ -1023,6 +1023,39 @@ HPDF_Page_MeasureText  (HPDF_Page          page,
     return ret;
 }
 
+HPDF_EXPORT(HPDF_UINT)
+HPDF_Page_MeasureTextAndTruncate  (HPDF_Page          page,
+                        const char        *text,
+                        HPDF_REAL          width,
+                        HPDF_BOOL          wordwrap,
+                        HPDF_REAL         *real_width,
+						HPDF_BOOL		   truncate_str)
+{
+    HPDF_PageAttr attr;
+    HPDF_UINT len = HPDF_StrLen(text, HPDF_LIMIT_MAX_STRING_LEN + 1);
+    HPDF_UINT ret;
+
+    if (!HPDF_Page_Validate (page) || len == 0)
+        return 0;
+
+    attr = (HPDF_PageAttr )page->attr;
+
+    HPDF_PTRACE((" HPDF_Page_MeasureTextAndTruncate\n"));
+
+    /* no font exists */
+    if (!attr->gstate->font) {
+        HPDF_RaiseError (page->error, HPDF_PAGE_FONT_NOT_FOUND, 0);
+        return 0;
+    }
+
+	ret = HPDF_Font_MeasureTextAndTruncate (attr->gstate->font, (HPDF_BYTE *)text, len, width,
+        attr->gstate->font_size, attr->gstate->char_space,
+        attr->gstate->word_space, wordwrap, real_width, truncate_str);
+
+    HPDF_CheckError (page->error);
+
+    return ret;
+}
 
 HPDF_EXPORT(HPDF_REAL)
 HPDF_Page_GetWidth  (HPDF_Page    page)

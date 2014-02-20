@@ -60,6 +60,17 @@ typedef HPDF_UINT
                               HPDF_BOOL        wordwrap,
                               HPDF_REAL        *real_width);
 
+typedef HPDF_UINT
+(*HPDF_Font_MeasureTextAndTruncate_Func)  (HPDF_Font        font,
+                              const HPDF_BYTE  *text,
+                              HPDF_UINT        len,
+                              HPDF_REAL        width,
+                              HPDF_REAL        fontsize,
+                              HPDF_REAL        charspace,
+                              HPDF_REAL        wordspace,
+                              HPDF_BOOL        wordwrap,
+                              HPDF_REAL        *real_width,
+							  HPDF_BOOL			truncate_str);
 
 typedef struct _HPDF_FontAttr_Rec  *HPDF_FontAttr;
 
@@ -68,6 +79,7 @@ typedef struct _HPDF_FontAttr_Rec {
     HPDF_WritingMode            writing_mode;
     HPDF_Font_TextWidths_Func   text_width_fn;
     HPDF_Font_MeasureText_Func  measure_text_fn;
+	HPDF_Font_MeasureTextAndTruncate_Func  measure_and_truncate_text_fn;
     HPDF_FontDef                fontdef;
     HPDF_Encoder                encoder;
 

@@ -46,6 +46,17 @@ MeasureText  (HPDF_Font         font,
               HPDF_BOOL         wordwrap,
               HPDF_REAL        *real_width);
 
+static HPDF_UINT
+MeasureTextAndTruncate  (HPDF_Font         font,
+              const HPDF_BYTE  *text,
+              HPDF_UINT         len,
+              HPDF_REAL         width,
+              HPDF_REAL         font_size,
+              HPDF_REAL         char_space,
+              HPDF_REAL         word_space,
+              HPDF_BOOL         wordwrap,
+              HPDF_REAL        *real_width,
+			  HPDF_BOOL		    truncate_str);
 
 static char*
 UINT16ToHex  (char        *s,
@@ -124,6 +135,7 @@ HPDF_Type0Font_New  (HPDF_MMgr        mmgr,
     attr->writing_mode = encoder_attr->writing_mode;
     attr->text_width_fn = TextWidth;
     attr->measure_text_fn = MeasureText;
+	attr->measure_and_truncate_text_fn = MeasureTextAndTruncate;
     attr->fontdef = fontdef;
     attr->encoder = encoder;
     attr->xref = xref;
@@ -779,7 +791,133 @@ MeasureText  (HPDF_Font          font,
     return len;
 }
 
+static HPDF_UINT
+MeasureTextAndTruncate  (HPDF_Font          font,
+              const HPDF_BYTE   *text,
+              HPDF_UINT          len,
+              HPDF_REAL          width,
+              HPDF_REAL          font_size,
+              HPDF_REAL          char_space,
+              HPDF_REAL          word_space,
+              HPDF_BOOL          wordwrap,
+              HPDF_REAL         *real_width,
+			  HPDF_BOOL			 truncate_str)
+{
+    HPDF_REAL w = 0;
+	HPDF_REAL prev_w = 0;
+    HPDF_UINT tmp_len = 0;
+    HPDF_UINT i;
+    HPDF_FontAttr attr = (HPDF_FontAttr)font->attr;
+    HPDF_ByteType last_btype = HPDF_BYTE_TYPE_TRIAL;
+    HPDF_Encoder encoder = attr->encoder;
+    HPDF_ParseText_Rec  parse_state;
+    HPDF_INT dw2;
 
+    HPDF_PTRACE ((" HPDF_Type0Font_MeasureText\n"));
+
+    if (attr->fontdef->type == HPDF_FONTDEF_TYPE_CID) {
+        HPDF_CIDFontDefAttr cid_fontdef_attr =
+                (HPDF_CIDFontDefAttr)attr->fontdef->attr;
+        dw2 = cid_fontdef_attr->DW2[1];
+    } else {
+        dw2 = (HPDF_INT)(attr->fontdef->font_bbox.bottom -
+                    attr->fontdef->font_bbox.top);
+    }
+
+    HPDF_Encoder_SetParseText (encoder, &parse_state, text, len);
+
+    for (i = 0; i < len; i++) {
+        HPDF_BYTE b = *text++;
+        HPDF_BYTE b2 = *text;  /* next byte */
+        HPDF_ByteType btype = HPDF_Encoder_ByteType (encoder, &parse_state);
+        HPDF_UNICODE unicode;
+        HPDF_UINT16 code = b;
+        HPDF_UINT16 tmp_w = 0;
+
+        if (btype == HPDF_BYTE_TYPE_LEAD) {
+            code <<= 8;
+            code = (HPDF_UINT16)(code + b2);
+        }
+
+        if (!wordwrap) {
+            if (HPDF_IS_WHITE_SPACE(b)) {
+                tmp_len = i + 1;
+                if (real_width)
+                    *real_width = w;
+            } else if (btype == HPDF_BYTE_TYPE_SINGLE ||
+                        btype == HPDF_BYTE_TYPE_LEAD) {
+                tmp_len = i;
+                if (real_width)
+                    *real_width = w;
+            }
+        } else {
+            if (HPDF_IS_WHITE_SPACE(b)) {
+                tmp_len = i + 1;
+                if (real_width)
+                    *real_width = w;
+            } /* else
+			//Commenting this out fixes problem with HPDF_Text_Rect() splitting the words
+            if (last_btype == HPDF_BYTE_TYPE_TRIAL ||
+                    (btype == HPDF_BYTE_TYPE_LEAD &&
+                    last_btype == HPDF_BYTE_TYPE_SINGLE)) {
+                if (!HPDF_Encoder_CheckJWWLineHead(encoder, code)) {
+                    tmp_len = i;
+                    if (real_width)
+                        *real_width = w;
+                }
+            }*/
+        }
+
+        if (HPDF_IS_WHITE_SPACE(b)) {
+            w += word_space;
+        }
+
+        if (btype != HPDF_BYTE_TYPE_TRIAL) {
+            if (attr->writing_mode == HPDF_WMODE_HORIZONTAL) {
+                if (attr->fontdef->type == HPDF_FONTDEF_TYPE_CID) {
+                    /* cid-based font */
+                    HPDF_UINT16 cid = HPDF_CMapEncoder_ToCID (encoder, code);
+                    tmp_w = HPDF_CIDFontDef_GetCIDWidth (attr->fontdef, cid);
+                } else {
+                    /* unicode-based font */
+                    unicode = (encoder->to_unicode_fn)(encoder, code);
+                    tmp_w = HPDF_TTFontDef_GetCharWidth (attr->fontdef,
+                            unicode);
+                }
+            } else {
+                tmp_w = (HPDF_UINT16)(-dw2);
+            }
+
+            if (i > 0)
+                w += char_space;
+        }
+		prev_w = w;
+        w += (HPDF_REAL)((HPDF_DOUBLE)tmp_w * font_size / 1000);
+
+        /* 2006.08.04 break when it encountered  line feed */
+        if (w > width || b == 0x0A)
+		{
+			if (w > width && truncate_str)
+			{
+				if (real_width)
+					*real_width = (HPDF_REAL)prev_w;
+				return i;
+			}
+            return tmp_len;
+		}
+
+        if (HPDF_IS_WHITE_SPACE(b))
+            last_btype = HPDF_BYTE_TYPE_TRIAL;
+        else
+            last_btype = btype;
+    }
+
+    /* all of text can be put in the specified width */
+    if (real_width)
+        *real_width = w;
+
+    return len;
+}
 
 static char*
 UINT16ToHex  (char        *s,
